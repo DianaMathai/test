@@ -1,0 +1,136 @@
+---
+title: "Wk4exam"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(dplyr)
+library(here)
+library(sf)
+library(tidyr)
+library(janitor)
+```
+
+```{r}
+#Load data
+Worldshape <- st_read(here("Data","World_Countries__Generalized_.shp" ))
+#check CRS
+print(Worldshape)
+
+GGIcsv <- read_csv(here::here("Data","HDR21-22_Composite_indices_complete_time_series.csv"))
+print(GGIcsv)
+```
+```{r}
+#Checking the class
+class(Worldshape)
+class(GGIcsv)
+```
+
+```{r}
+#To check the class of CSV
+Datatypelist <- GGIcsv %>% 
+  summarise_all(class) %>%
+  pivot_longer(everything(), 
+               names_to="All_Colnames", 
+               values_to="Variable_coltype")
+
+```
+
+
+```{r}
+#cleaning col names of CSV
+cleandatacsv <- GGIcsv %>%
+  clean_names()
+```
+
+```{r}
+#selecting required columns
+selecteddatacsv <- cleandatacsv%>%
+  dplyr::select(contains("iso3"), 
+                contains("country"),
+                contains("gii_rank_2021"),
+                contains("gii_2010"),
+                contains("gii_2019"))
+```
+
+
+```{r}
+#calculate difference between two
+
+selecteddata <- selecteddatacsv %>% 
+  #new column with average of male and female life expectancy
+  mutate(Diffinequality= (gii_2019 - gii_2010))%>%
+  #select only columns we want
+  dplyr::select(iso3,
+         country,
+         gii_rank_2021, 
+         gii_2010,
+         gii_2019,
+         Diffinequality)
+```
+
+```{r}
+#slice only the required dataset
+
+inequalityIndx<-selecteddata%>% slice(1:195)
+print(inequalityIndx)
+```
+```{r}
+#introduce to iso2c values corresponding to the countryvar in the csv
+library(countrycode)
+
+countrycodeiso2<-inequalityIndx%>%
+  mutate(iso2c=countrycode(inequalityIndx$country, origin = 'country.name', destination = 'iso2c'))
+
+print(countrycodeiso2)
+```
+
+```{r}
+#join data post cleaning
+
+Ljointdata <- Worldshape %>% 
+  clean_names() %>%
+  left_join(., 
+            countrycodeiso2,
+            by = c("iso"= "iso2c"))
+
+```
+
+```{r}
+#removing na files
+data<-na.omit(Ljointdata)
+```
+
+```{r}
+#map plot
+library(tmap)
+library(tmaptools)
+tmap_mode("plot")
+
+#map of difference in inequality 
+qtm(data, 
+    fill = "Diffinequality")
+
+```
+```{r}
+#more plot
+tmapworld <- data %>%
+  st_bbox(.) %>% 
+  tmaptools::read_osm(., type = "osm", zoom = NULL)
+
+```
+
+```{r}
+tm_shape(data)+
+tm_polygons("Diffinequality", 
+        style="jenks",
+        palette="YlOrBr",
+        midpoint=NA,
+        title="Difference in inequality",
+        alpha = 0.9) + 
+  tm_compass(position = c("left", "bottom"),type = "arrow") + 
+  tm_scale_bar(position = c("left", "bottom")) +
+  tm_layout(title = "Global difference in inequality between 2010 and 2019", legend.position = c("right", "bottom"))
+
+```
+
