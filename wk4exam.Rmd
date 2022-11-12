@@ -132,5 +132,6 @@ tm_polygons("Diffinequality",
   tm_scale_bar(position = c("left", "bottom")) +
   tm_layout(title = "Global difference in inequality between 2010 and 2019", legend.position = c("right", "bottom"))
 
+print(selecteddata)
 ```
 
